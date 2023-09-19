@@ -1,24 +1,64 @@
 import unittest
-import json
+from util.field_validation import FieldValidation
+class TestFieldValidation(unittest.TestCase):
+    def test_non_empty_account_number(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Account number:','value':'12345'}},
+                        {'answer':{'name':'Account number:','value':'56789'}}
+                        ]
+        }
+        result = FieldValidation.account_number_checking(filter_data)
+        self.assertEqual(result,"Account number is not empty continuing the process")
 
-# Import the function you want to test
-from account_name_validation import check_names_and_values
-class TestCheckNamesAndValues(unittest.TestCase):
-    def test_matching_names_and_values(self):
-        data = [
-            {"answer": {"name": "Primary account owner name or registration as it appears at the other firm", "value": "Shravani"}},
-            {"answer": {"name": "Primary account owner name", "value": "Shravani"}}
-        ]
-        result = check_names_and_values(data)
-        self.assertTrue(result, "Expected matching names and values")
+    def test_empty_account_number(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Account number:','value':''}},
+                        {'answer':{'name':'Account number:','value':'56789'}}
+                        ]
+        }
+        result = FieldValidation.account_number_checking(filter_data)
+        self.assertEqual(result,"Account number is empty stopping the process")
 
-    def test_non_matching_names_and_values(self):
-        data = [
-            {"answer": {"name": "Primary account owner name or registration as it appears at the other firm", "value": "Shravani"}},
-            {"answer": {"name": "Primary account owner name", "value": "Banda"}}
-        ]
-        result = check_names_and_values(data)
-        self.assertFalse(result, "Expected non-matching names and values")
+    def test_same_acc_name_match(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Primary account owner name or registration as it appears at the other firm','value':'56789'}},
+                        {'answer':{'name':'Primary account owner name','value':'56789'}},
+                        {'answer':{'name':'Name of secondary owner','value':'56789'}},
+                        {'answer':{'name':'Secondary account owner name','value':'56789'}}
+                        ]
+        }
+        result = FieldValidation.acc_name_match(filter_data)
+        self.assertTrue("Both Account names are matching" in result)
+        self.assertTrue("Both primary and secondary names are matching" in result)
+
+    def test_diff_acc_name_match(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Primary account owner name or registration as it appears at the other firm','value':'56789'}},
+                        {'answer':{'name':'Primary account owner name','value':'56789'}},
+                        {'answer':{'name':'Name of secondary owner','value':'56789'}},
+                        {'answer':{'name':'Secondary account owner name','value':'56789'}}
+                        ]
+        }
+        result = FieldValidation.acc_name_match(filter_data)
+        self.assertTrue("Both Account names are not matching" in result)
+        self.assertTrue("Both primary and secondary names are NOT matching" in result)
+
+    def test_same_SSN_match(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Primary Social Security number','value':'12345'}},
+                        {'answer':{'name':'Primary SSN or EIN&nbsp;under which the account is registered','value':'12345'}}
+                        ]
+        }
+        result = FieldValidation.SSN_match(filter_data)
+        self.assertEqual(result,"Both ssn are matching")
+    def test_diff_SSN_match(self):
+        filter_data = {
+            'results': [{'answer': {'name':'Primary Social Security number','value':'56789'}},
+                        {'answer':{'name':'Primary SSN or EIN&nbsp;under which the account is registered','value':'12345'}}
+                        ]
+        }
+        result = FieldValidation.SSN_match(filter_data)
+        self.assertEqual(result,"Both ssn are NOT matching")
 
 if __name__ == '__main__':
     unittest.main()
