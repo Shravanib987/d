@@ -1,23 +1,16 @@
-@staticmethod
-def verify_account_name_match(filter_data):
-    vg_primary_owner_name = filter_data.get(Constants.VG_PRIMARY_OWNER_NAME, '').strip()
-    contrafirm_primary_owner_name = filter_data.get(Constants.CONTRAFIRM_PRIMARY_OWNER_NAME, '').strip()
-    vg_secondary_owner_name = filter_data.get(Constants.VG_SECONDARY_OWNER_NAME, '').strip()
-    contrafirm_secondary_owner_name = filter_data.get(Constants.CONTRAFIRM_SECONDARY_OWNER_NAME, '').strip()
-
-    name_match = False
-
-    if vg_primary_owner_name == contrafirm_primary_owner_name:
-        name_match = True
-        LOGGER.info('Both Vanguard and Contrafirm primary Account owner names are matching')
-    else:
-        LOGGER.info('Both Vanguard and Contrafirm Primary Account owner names are NOT matching')
-
-    if vg_secondary_owner_name and contrafirm_secondary_owner_name:
-        if vg_secondary_owner_name == contrafirm_secondary_owner_name:
-            name_match = True
-            LOGGER.info('Both Primary and Secondary names of Vanguard and Contrafirm are matching')
+    @staticmethod
+    def verify_ssn_match(filter_data):
+        ssn_name_match = False
+        vanguard_ssn = ''
+        contrafirm_ssn = ''
+        for key,value in filter_data.items():
+            if key == Constants.CONTRAFIRM_SSN:
+                contrafirm_ssn = value
+            elif key == Constants.VANGUARD_SSN:
+                vanguard_ssn = value
+        if vanguard_ssn == contrafirm_ssn:
+            ssn_name_match = True
+            LOGGER.info('Both Vanguard and Contrafirm SSN are matching')
         else:
-            name_match = False
-
-    return name_match
+            LOGGER.info('Both Vanguard and Contrafirm SSN are NOT matching')
+        return ssn_name_match
