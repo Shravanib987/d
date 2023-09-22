@@ -1,48 +1,55 @@
-from util.logging_util import LOGGER
-from constants.constant_values import Constants
+/*
+ ****************************************************************************
+ *
+ * Copyright (c)2020 The Vanguard Group of Investment Companies (VGI)
+ * All rights reserved.
+ *
+ * This source code is CONFIDENTIAL and PROPRIETARY to VGI. Unauthorized
+ * distribution, adaptation, or use may be subject to civil and criminal
+ * penalties.
+ *
+ ****************************************************************************
+ Module Description:
 
+ $HeadURL:$
+ $LastChangedRevision:$
+ $Author:$
+ $LastChangedDate:$
+*/
+package com.vanguard.retail.legal.webservice.service.validator;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-class FieldValidation:
-    @staticmethod
-    def verify_account_number_exists(filter_data):
-        account_number = filter_data.get(Constants.VG_ACCOUNT_NUMBER)  #trying to get the account number
-        if account_number and account_number.strip():
-            LOGGER.info('Account number is present in the answer file')
-            return True
-        else:
-            LOGGER.info('Account number is NOT present in the answer file')
-            return False
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
-    @staticmethod
-    def verify_account_name_match(filter_data):
-        vg_primary_owner_name = filter_data.get(Constants.VG_PRIMARY_OWNER_NAME, '').strip()
-        contrafirm_primary_owner_name = filter_data.get(Constants.CONTRAFIRM_PRIMARY_OWNER_NAME, '').strip()
-        vg_secondary_owner_name = filter_data.get(Constants.VG_SECONDARY_OWNER_NAME, '').strip()
-        contrafirm_secondary_owner_name = filter_data.get(Constants.CONTRAFIRM_SECONDARY_OWNER_NAME, '').strip()
-        account_name_match = False
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
-        if vg_primary_owner_name == contrafirm_primary_owner_name:
-            account_name_match = True
-            LOGGER.info('Both Vanguard and Contrafirm primary Account owner names are matching')
-        else:
-            LOGGER.info('Both Vanguard and Contrafirm Primary Account owner names are NOT matching')
+import com.vanguard.retail.legal.webservice.exception.ProcessException;
+@RunWith(MockitoJUnitRunner.class)
+public class ResponseValidatorTest {
 
-        if vg_secondary_owner_name and contrafirm_secondary_owner_name:
-            if vg_secondary_owner_name == contrafirm_secondary_owner_name:
-            account_name_match = True
-            LOGGER.info('Both Primary and Secondary names of Vanguard and Contrafirm are matching')
-        else:
-            account_name_match = False
-            return account_name_match
-
-    @staticmethod
-    def verify_ssn_match(filter_data):
-        vanguard_ssn = filter_data.get(Constants.VANGUARD_SSN, '').strip()
-        contrafirm_ssn = filter_data.get(Constants.CONTRAFIRM_SSN, '').strip()
-        ssn_name_match = False
-        if vanguard_ssn == contrafirm_ssn:
-            ssn_name_match = True
-            LOGGER.info('Both Vanguard and Contrafirm SSN are matching')
-        else:
-            LOGGER.info('Both Vanguard and Contrafirm SSN are NOT matching')
-            return ssn_name_match
+	@InjectMocks
+	private ResponseValidator validator;
+	
+	@Mock
+	private Response response;
+	
+	@Test
+	public void testValidate(){
+		when(response.getStatusInfo()).thenReturn(Status.OK);
+		validator.validate(response);
+		verify(response).getStatusInfo();
+	}
+	
+	@Test(expected=ProcessException.class)
+	public void testValidate_Exception(){
+		when(response.getStatusInfo()).thenReturn(Status.INTERNAL_SERVER_ERROR);
+		validator.validate(response);
+	}
+	
+}
