@@ -1,55 +1,47 @@
-/*
- ****************************************************************************
- *
- * Copyright (c)2020 The Vanguard Group of Investment Companies (VGI)
- * All rights reserved.
- *
- * This source code is CONFIDENTIAL and PROPRIETARY to VGI. Unauthorized
- * distribution, adaptation, or use may be subject to civil and criminal
- * penalties.
- *
- ****************************************************************************
- Module Description:
-
- $HeadURL:$
- $LastChangedRevision:$
- $Author:$
- $LastChangedDate:$
-*/
-package com.vanguard.retail.legal.webservice.service.validator;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.slf4j.Logger;
 
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import static org.mockito.Mockito.*;
 
-import com.vanguard.retail.legal.webservice.exception.ProcessException;
-@RunWith(MockitoJUnitRunner.class)
 public class ResponseValidatorTest {
 
-	@InjectMocks
-	private ResponseValidator validator;
-	
-	@Mock
-	private Response response;
-	
-	@Test
-	public void testValidate(){
-		when(response.getStatusInfo()).thenReturn(Status.OK);
-		validator.validate(response);
-		verify(response).getStatusInfo();
-	}
-	
-	@Test(expected=ProcessException.class)
-	public void testValidate_Exception(){
-		when(response.getStatusInfo()).thenReturn(Status.INTERNAL_SERVER_ERROR);
-		validator.validate(response);
-	}
-	
+    @Mock
+    private Logger logger;
+
+    @Mock
+    private Response response;
+
+    private ResponseValidator responseValidator;
+
+    @Before
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+        responseValidator = new ResponseValidator();
+        responseValidator.setLogger(logger);
+    }
+
+    @Test
+    public void testValidate_SuccessfulResponse() {
+        when(response.getStatusInfo().getFamily()).thenReturn(Status.Family.SUCCESSFUL);
+
+        // Call the validate method
+        responseValidator.validate(response);
+
+        // Verify that the logger was not called with an error message
+        verify(logger, never()).error(anyString(), any());
+    }
+
+    @Test(expected = ProcessException.class)
+    public void testValidate_UnsuccessfulResponse() {
+        when(response.getStatusInfo().getFamily()).thenReturn(Status.Family.SERVER_ERROR);
+
+        // Call the validate method, which should throw ProcessException
+        responseValidator.validate(response);
+    }
 }
