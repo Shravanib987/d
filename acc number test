@@ -1,49 +1,77 @@
-from unittest import TestCase
-from unittest.mock import patch
-from src.service.managed_accounts_service import requests
-from src.service.managed_accounts_service import VGSessionService
-from src.service.managed_accounts_service import OAuthService
-from tests.service.mock_response import MockResponse
-from validation.managed_account_validation import ManagedAccountValidation
+Does the below code looks good for the acceptance criteria..
 
-vg_session_token = "VGSESSION"
-oauth_token = "OAUTHTOKEN"
 
-stp_data = {
-    "message": "",
-    "is_stp_eligible": True
-}
+from util.logging_util import LOGGER
+from service.managed_accounts_service import ManagedAccountsService
 
-class TestManagedAccountValidation(TestCase):
-    def setUp(self):
-        stp_data["message"] = ""
-        stp_data["is_stp_eligible"] = True
 
-    @patch.object(VGSessionService, 'retrieve_vg_session_token', return_value=vg_session_token)
-    @patch.object(OAuthService, 'retrieve_oauth_token', return_value=oauth_token)
-    @patch.object(requests, 'post', return_value=MockResponse([{"accountManagementType": "MANAGED"}], 200))
-    def test_managed_account(self, mock_post, mock_retrieve_oauth_token, mock_retrieve_vg_session_token):
-        answer_file = {"brokerageAccount": {"accountId": "889400030162730"}}
-        ManagedAccountValidation.validating_account_managed(answer_file, stp_data)
-        self.assertFalse(stp_data['is_stp_eligible'])
-        self.assertIn("Vanguard Account is Managed, out of scope for STP Automation. Sending to Manual Queue.", stp_data['message'])
-        mock_post.assert_called_once()
+class ManagedAccountValidation:
+    @staticmethod
+    def validating_account_managed(answer_file, stp_data):
+        account_Id = answer_file['brokerageAccount']['accountId']
+        response_data = ManagedAccountsService.retrieve_managed_accounts(account_Id)
 
-    @patch.object(VGSessionService, 'retrieve_vg_session_token', return_value=vg_session_token)
-    @patch.object(OAuthService, 'retrieve_oauth_token', return_value=oauth_token)
-    @patch.object(requests, 'post', side_effect=Exception("Service call failed"))
-    def test_service_call_failure(self, mock_post, mock_retrieve_oauth_token, mock_retrieve_vg_session_token):
-        answer_file = {"brokerageAccount": {"accountId": '889400030162730'}}
-        ManagedAccountValidation.validating_account_managed(answer_file, stp_data)
-        self.assertFalse(stp_data['is_stp_eligible'])
-        self.assertIn("Unable to determine account type due to service failure. Moving on to the next validation.", stp_data['message'])
-        mock_post.assert_called_once()
+        if response_data is None:
+            # Log a temporary message for service failure
+            LOGGER.info("Unable to determine account type due to service failure. Moving on to the next validation.")
+            stp_data['is_stp_eligible'] = False
+            stp_data['message'] += "Unable to determine account type due to service failure. Moving on to the next validation."
+            return
 
-    @patch.object(VGSessionService, 'retrieve_vg_session_token', return_value=vg_session_token)
-    @patch.object(OAuthService, 'retrieve_oauth_token', return_value=oauth_token)
-    @patch.object(requests, 'post', return_value=MockResponse({}, 404))
-    def test_not_managed_account(self, mock_post, mock_retrieve_oauth_token, mock_retrieve_vg_session_token):
-        answer_file = {"brokerageAccount": {"accountId": '889400030162730'}}
-        ManagedAccountValidation.validating_account_managed(answer_file, stp_data)
-        self.assertTrue(stp_data['is_stp_eligible'])
-        mock_post.assert_called_once()
+        if response_data[0].get('accountManagementType') == 'MANAGED':
+            # Log a temporary message for managed account
+            LOGGER.info("Vanguard Account is Managed. STP Automation is out of scope. Sending to Manual Queue.")
+            stp_data['is_stp_eligible'] = False
+            stp_data['message'] += "Vanguard Account is Managed, out of scope for STP Automation. Sending to Manual Queue."
+        else:
+            # Log a temporary message for non-managed account
+            LOGGER.info("Vanguard Account is not Managed. Continuing to the next validation.")
+
+
+
+
+Acceptance Criteria
+
+Given the account listed in the answer file is NOT a managed account
+
+And the service call is successful
+
+And managed account data is returned for the given client/account
+
+When the lambda validates the account is not managed
+
+Then it logs a message (temporary)
+
+And continues on to the next step
+
+ 
+
+Given the account listed in the answer file is a managed account
+
+And the service call is successful
+
+And account data is returned for the given account
+
+When the lambda validates the account
+
+Then it logs a message (temporary)
+
+and sets  STP flag to false
+
+and moves on to the next validation
+
+ 
+
+Given the account listed in the answer file is a managed account
+
+And the service call is NOT successful
+
+And account data is none
+
+When the lambda validates the account
+
+Then it logs a message (temporary)
+
+and sets  STP flag to false
+
+and moves on to the next validation
