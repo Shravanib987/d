@@ -1,128 +1,133 @@
-/*
- ****************************************************************************
- *
- * Copyright (c)2021 The Vanguard Group of Investment Companies (VGI)
- * All rights reserved.
- *
- * This source code is CONFIDENTIAL and PROPRIETARY to VGI. Unauthorized
- * distribution, adaptation, or use may be subject to civil and criminal
- * penalties.
- *
- ****************************************************************************
- Module Description:
+managed_account_validation.py code
 
- $HeadURL:$
- $LastChangedRevision:$
- $Author:$
- $LastChangedDate:$
-*/
-package com.vanguard.retail.legal.webservice.service;
 
-import static javax.ws.rs.client.Entity.json;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.powermock.reflect.Whitebox.getInternalState;
-import static org.powermock.reflect.Whitebox.setInternalState;
+from util.logging_util import LOGGER
+from service.managed_accounts_service import ManagedAccountsService
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.Response;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-import org.slf4j.Logger;
+class ManagedAccountValidation:
+    @staticmethod
+    def validating_account_managed(answer_file,stp_data):
+        account_Id = answer_file['brokerageAccount']['accountId']
+        response_data = ManagedAccountsService.retrieve_managed_accounts(account_Id)
+        is_managed_account = ManagedAccountsService.extract_managed_flag(response_data)
+        if is_managed_account != 'MANAGED':
+            LOGGER.info('Vanguard Account Registration Validation Failed, unable to determine if this a Managed Account.')
+        else:
+            stp_data['is_stp_eligible'] = False
+            stp_data['message'] = stp_data['message'] + "Vanguard Account is Managed, out of scope for STP Automation. Sending to Manual Queue."
+            LOGGER.info('Vanguard Account is Managed, out of scope for STP Automation. Sending to Manual Queue.')
 
-import com.vanguard.retail.legal.webservice.domain.Createable;
-import com.vanguard.retail.legal.webservice.rest.ResponseFactory;
-import com.vanguard.retail.legal.webservice.service.validator.ResponseValidator;
-import com.vanguard.retail.legal.webservice.set.domain.EventTrackerDetails;
-import com.vanguard.test.categories.UnitTest;
 
-@Category(UnitTest.class)
-@RunWith(MockitoJUnitRunner.class)
-public class ChainedCreateableServiceTest {
 
-	/*@InjectMocks*/ // does not work because of the additional constructor
-	private ChainedCreateableService chainedChainedCreateableService;
+managed_account_service.py code
 
-	@Mock
-	private Logger log;
 
-	@Mock
-	private ResponseFactory responseFactory;
 
-	@Mock
-	private ResponseValidator responseValidator;
+import requests
+from service.oauth_service import OAuthService
+from service.vg_session_service import VGSessionService
+from constants.endpoints import EndPoints
+from util.logging_util import LOGGER
+from constants.constant_values import Constants
 
-	private String target = "target";
 
-	private String path = "/path";
+class ManagedAccountsService:
+    @staticmethod
+    def retrieve_managed_accounts(account_id):
+        managed_accounts_response_data = None
+        url = EndPoints.retrieve_url_by_key(EndPoints.AAT_MANAGED_ACCOUNTS_KEY)
+        headers = ManagedAccountsService.build_headers()
+        payload = [
+            {
+                "accountId": account_id,
+                "accountRecordKeeper": "VANGUARD_RETAIL"
+            }
+        ]
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            if response.status_code != 200:
+                LOGGER.error("Failed to get managed account details with code %s and message %s",
+                             str(response.status_code), response.text)
+            else:
+                managed_accounts_response_data = response.json()
+        except Exception as exception:
+            LOGGER.error("Exception occurred during managed accounts service request: %s", str(exception))
 
-	@Before
-	public void setUp() {
-		chainedChainedCreateableService = new ChainedCreateableService(target, path);
-		setInternalState(chainedChainedCreateableService, "log", log);
-		setInternalState(chainedChainedCreateableService, "responseFactory", responseFactory);
-		setInternalState(chainedChainedCreateableService, "responseValidator", responseValidator);
-	}
+        return managed_accounts_response_data
 
-	@Test
-	public void givenAChainedCreateableServiceWhenCreatingANewInstanceThenTheNewInstanceIsNotNull() {
-		chainedChainedCreateableService = new ChainedCreateableService();
-		assertNotNull(chainedChainedCreateableService);
-	}
+    @staticmethod
+    def extract_managed_flag(managed_accounts_response_data):
+        if managed_accounts_response_data:
+            if managed_accounts_response_data[0]:
+                # temp log for testing
+                LOGGER.info('Account is managed? ' + str(managed_accounts_response_data[0].get("accountManagementType") == "MANAGED"))
+                return managed_accounts_response_data[0].get("accountManagementType")
+            return None
+        return None
 
-	@Test
-	public void givenATargetAndAPathWhenCreatingANewChainedCreateableServiceInstanceThenTheInstanceIsNotNullAndTheTargetAndPathAreSet() {
-		assertNotNull(chainedChainedCreateableService);
-		assertEquals(target, getInternalState(chainedChainedCreateableService, "target", ChainedCreateableService.class));
-		assertEquals(path, getInternalState(chainedChainedCreateableService, "path", ChainedCreateableService.class));
-	}
+    @staticmethod
+    def build_headers():
+        vg_session = VGSessionService.retrieve_vg_session_token()
+        oauth_token = OAuthService.retrieve_oauth_token(vg_session=vg_session)
+        return {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Cookie": f"VGSESSION={vg_session}",
+            "Consumer-Application-Code": Constants.CONSUMER_APPLICATION_CODE_KEY,
+            "Authorization": f"Bearer {oauth_token}",
+            "Origin": "https://www.vanguard.com",
+        }
 
-	@Test
-	public void givenAChainedCreateableAndAHttpServletRequestWhenCreatingThenABaseResponseIsReturned() {
-		String target = "target";
-		String path = "/path";
-		setInternalState(chainedChainedCreateableService, "target", target);
-		setInternalState(chainedChainedCreateableService, "path", path);
-		Createable createable = mock(Createable.class);
-		HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
-		String eventId = "eventId";
-		EventTrackerDetails eventTrackerDetails = mock(EventTrackerDetails.class);
-		int status = 200;
-		String type = "type";
-		String message = "message";
-		Response expected = mock(Response.class);
 
-		when(responseFactory.post(httpServletRequest, target, path, json(createable))).thenReturn(expected);
-		doNothing().when(responseValidator).validate(expected);
-		when(expected.readEntity(EventTrackerDetails.class)).thenReturn(eventTrackerDetails);
-		when(createable.getEventId()).thenReturn(eventId);
-		when(expected.getStatus()).thenReturn(status);
-		when(eventTrackerDetails.getType()).thenReturn(type);
-		when(eventTrackerDetails.getMessage()).thenReturn(message);
-		doNothing().when(log).info("Successfully called the {}{} to update the event details|eventId={}|status={}|type={}|message={}", target, path, eventId, status, type, message);
 
-		Response actual = chainedChainedCreateableService.create(createable, httpServletRequest);
+Please edit managed_account_validation.py  according to the acceptance criteria
+Acceptance Criteria
 
-		verify(responseFactory, times(1)).post(httpServletRequest, target, path, json(createable));
-		verify(responseValidator, times(1)).validate(expected);
-		verify(expected, times(1)).readEntity(EventTrackerDetails.class);
-		verify(createable, times(1)).getEventId();
-		verify(expected, times(1)).getStatus();
-		verify(eventTrackerDetails, times(1)).getType();
-		verify(eventTrackerDetails, times(1)).getMessage();
-		verify(log, times(1)).info("Successfully called the {}{} to update the event details|eventId={}|status={}|type={}|message={}", target, path, eventId, status, type, message);
+Given the account listed in the answer file is NOT a managed account
 
-		assertEquals(expected, actual);
-	}
+And the service call is successful
 
-}
+And managed account data is returned for the given client/account
+
+When the lambda validates the account is not managed
+
+Then it logs a message (temporary)
+
+And continues on to the next step
+
+ 
+
+Given the account listed in the answer file is a managed account
+
+And the service call is successful
+
+And account data is returned for the given account
+
+When the lambda validates the account
+
+Then it logs a message (temporary)
+
+and sets  STP flag to false
+
+and moves on to the next validation
+
+ 
+
+Given the account listed in the answer file is a managed account
+
+And the service call is NOT successful
+
+And account data is none
+
+When the lambda validates the account
+
+Then it logs a message (temporary)
+
+and sets  STP flag to false
+
+and moves on to the next validation
+
+(Get Message from Billy for 1. unable to determine due to service failure; 2. Managed account=true)
+
+SAT Testing 
