@@ -1,71 +1,55 @@
-Is this code correct for the below acceptance criteria
+    @patch.object(VGSessionService, 'retrieve_vg_session_token', return_value=vg_session_token)
+    @patch.object(OAuthService, 'retrieve_oauth_token', return_value=oauth_token)
+    @patch.object(requests, 'post', side_effect=Exception("Service call failed"))
+    def test_service_call_failure(self, mock_post, mock_retrieve_oauth_token, mock_retrieve_vg_session_token):
+        answer_file = {"brokerageAccount": {"accountId": '889400030162730'}}
+        ManagedAccountValidation.validating_account_managed(answer_file, stp_data)
+        self.assertFalse(stp_data['is_stp_eligible'])
+        self.assertIn("\nUnable to determine account type due to service failure. Moving on to the next validation.", stp_data['message'])
+        mock_post.assert_called_once()
 
-from util.logging_util import LOGGER
-from service.managed_accounts_service import ManagedAccountsService
+
+is this test case fine for test case of service call failue..But i am getting the below error 
 
 
-class ManagedAccountValidation:
+"C:\Program Files\Python3913\python.exe" C:/Users/u5hn/AppData/Roaming/JetBrains/IntelliJIdea2023.1/plugins/python/helpers/pycharm/_jb_pytest_runner.py --target managed_account_validation_test.py::TestManagedAccountValidation.test_service_call_failure 
+Testing started at 4:30 PM ...
+Launching pytest with arguments managed_account_validation_test.py::TestManagedAccountValidation::test_service_call_failure --no-header --no-summary -q in C:\Repos\nat-processor.lambda\tests\validation
+
+============================= test session starts =============================
+collecting ... collected 1 item
+
+managed_account_validation_test.py::TestManagedAccountValidation::test_service_call_failure 
+
+============================== 1 failed in 1.01s ==============================
+FAILED [100%]{"timestamp": "2023-10-02 16:30:14,263.263", "module": "[managed_accounts_service.retrieve_managed_accounts:29  ]", "level": "ERROR   ", "message": "Exception occurred during managed accounts service request: Service call failed"}
+
+managed_account_validation_test.py:32 (TestManagedAccountValidation.test_service_call_failure)
+self = <tests.validation.managed_account_validation_test.TestManagedAccountValidation testMethod=test_service_call_failure>
+mock_post = <MagicMock name='post' id='2261711989680'>
+mock_retrieve_oauth_token = <MagicMock name='retrieve_oauth_token' id='2261712124752'>
+mock_retrieve_vg_session_token = <MagicMock name='retrieve_vg_session_token' id='2261712140848'>
+
+    @patch.object(VGSessionService, 'retrieve_vg_session_token', return_value=vg_session_token)
+    @patch.object(OAuthService, 'retrieve_oauth_token', return_value=oauth_token)
+    @patch.object(requests, 'post', side_effect=Exception("Service call failed"))
+    def test_service_call_failure(self, mock_post, mock_retrieve_oauth_token, mock_retrieve_vg_session_token):
+        answer_file = {"brokerageAccount": {"accountId": '889400030162730'}}
+>       ManagedAccountValidation.validating_account_managed(answer_file, stp_data)
+
+managed_account_validation_test.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+answer_file = {'brokerageAccount': {'accountId': '889400030162730'}}
+stp_data = {'is_stp_eligible': True, 'message': ''}
+
     @staticmethod
     def validating_account_managed(answer_file, stp_data):
         account_Id = answer_file['brokerageAccount']['accountId']
         response_data = ManagedAccountsService.retrieve_managed_accounts(account_Id)
-        if response_data[0].get('accountManagementType') == 'MANAGED':
-            if response_data is None:
-                stp_data['is_stp_eligible'] = False
-                stp_data['message'] = stp_data['message'] + "\nUnable to determine account type due to service failure. Moving on to the next validation."
-                LOGGER.info('Unable to determine account type due to service failure. Moving on to the next validation. , set message: ' + stp_data['message'])
-            else:
-                stp_data['is_stp_eligible'] = False
-                stp_data['message'] = stp_data['message'] + "\nVanguard Account is Managed. STP Automation is out of scope. Sending to Manual Queue."
-                LOGGER.info('Vanguard Account is Managed. STP Automation is out of scope. Sending to Manual Queue. , set message: ' + stp_data['message'])
-        else:
-            LOGGER.info("Vanguard Account is not Managed. Continuing to the next validation.")
+>       if response_data[0].get('accountManagementType') == 'MANAGED':
+E       TypeError: 'NoneType' object is not subscriptable
 
+..\..\src\validation\managed_account_validation.py:10: TypeError
 
-
-
-Acceptance Criteria
-
-Given the account listed in the answer file is NOT a managed account
-
-And the service call is successful
-
-And managed account data is returned for the given client/account
-
-When the lambda validates the account is not managed
-
-Then it logs a message (temporary)
-
-And continues on to the next step
-
- 
-
-Given the account listed in the answer file is a managed account
-
-And the service call is successful
-
-And account data is returned for the given account
-
-When the lambda validates the account
-
-Then it logs a message (temporary)
-
-and sets  STP flag to false
-
-and moves on to the next validation
-
- 
-
-Given the account listed in the answer file is a managed account
-
-And the service call is NOT successful
-
-And account data is none
-
-When the lambda validates the account
-
-Then it logs a message (temporary)
-
-and sets  STP flag to false
-
-and moves on to the next validation
+Process finished with exit code 1
