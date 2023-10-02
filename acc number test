@@ -1,45 +1,22 @@
-import json
-from service.answer_file_service import AnswerFileService
-from constants.constant_values import Constants
 from util.logging_util import LOGGER
-from field_validation import FieldValidation
+from service.managed_accounts_service import ManagedAccountsService
 
-class ProcessUtil:
-
+class ManagedAccountValidation:
     @staticmethod
-    def process_event(event):
-        records = event.get('Records')
-        if records:
-            process_util = ProcessUtil()
-            for record in records:
-                try:
-                    envelope_id, inflight_number = process_util.extract_record_data(record)
-                    answer_file = AnswerFileService.retrieve_answer_file(inflight_number)
-                    LOGGER.info('Answer file data: ' + str(answer_file)) #temp log for testing
-                    # here passing all constant values to filter the data
-                    filter_data = process_util.extract_answer_file_data([Constants.ACCOUNT_NUMBER,Constants.CONTRAFIRM_PRI_ACCNAME,Constants.VG_PRI_ACCNAME,Constants.CONTRAFIRM_SSN,Constants.VG_SSN,Constants.CONTRAFIRM_SEC_ACCNAME,Constants.VG_SEC_ACCNAME], answer_file)
-                    # calling account number checking, acc_name, SSN from fieldvalidation
-                    FieldValidation.account_number_checking(filter_data)
-                    FieldValidation.acc_name_match(filter_data)
-                    FieldValidation.SSN_match(filter_data)
-                except Exception as exception:
-                    #this will be handled further in future fallout story
-                    LOGGER.error("Exception processing record: %s", exception)
+    def validating_account_managed(answer_file, stp_data):
+        account_Id = answer_file['brokerageAccount']['accountId']
+        response_data = ManagedAccountsService.retrieve_managed_accounts(account_Id)
+        
+        if response_data is None:
+            # Log a temporary message for service failure
+            LOGGER.info("Unable to determine account type due to service failure. Moving on to the next validation.")
+            return
+
+        if response_data[0].get('accountManagementType') == 'MANAGED':
+            # Log a temporary message for managed account
+            LOGGER.info("Vanguard Account is Managed. STP Automation is out of scope. Sending to Manual Queue.")
+            stp_data['is_stp_eligible'] = False
+            stp_data['message'] += "Vanguard Account is Managed, out of scope for STP Automation. Sending to Manual Queue."
         else:
-            LOGGER.info('No records in queue event')
-
-    @staticmethod
-    def extract_record_data(record):
-        LOGGER.info('Started processing record: ' + record['body'])
-        message_body = json.loads(record['body'])
-        envelope_id = message_body['envelopeId']
-        inflight_number = message_body['inflightNumber']
-        return envelope_id, inflight_number
-    @staticmethod
-    def extract_answer_file_data(required_fields, answer_file):
-        extracted_answers = {}
-        is_required_field = lambda answer: answer is not None and answer['name'] in required_fields
-        for result in answer_file:
-            if is_required_field(result['answer']):
-                extracted_answers [result['answer']['name']] = result['answer']['value']
-        return extracted_answers
+            # Log a temporary message for non-managed account
+            LOGGER.info("Vanguard Account is not Managed. Continuing to the next validation.")
