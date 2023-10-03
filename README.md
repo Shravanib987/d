@@ -13,7 +13,6 @@ class ManagedAccountValidation:
     @staticmethod
     def validating_account_managed(toa_record_data, stp_data):
         account_id = toa_record_data['brokerageAccount']['accountId']
-        toa_record_data["isAccountManaged"]
         response_data = ManagedAccountsService.retrieve_managed_accounts(account_id)
         if response_data is None:
             stp_data['is_stp_eligible'] = False
