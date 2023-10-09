@@ -1,28 +1,34 @@
-class DataExtractor:
-    # ... (other methods remain the same)
+    def execute_client_name(toa_record_data):
+        client_names_response_data = {}
+        for poid in toa_record_data["clientSearchResponse"]:
+            response = ClientNamesService.retrieve_client_names(poid)
+            client_names_response_data[str(poid)] = response
+        toa_record_data["clientNameResponse"] = client_names_response_data if client_names_response_data else None
 
-    @staticmethod
-    def execute_client_search(toa_record_data):
-        client_search_response_data = ClientSearchService.retrieve_client_poids(toa_record_data.get(Constants.VG_ACCOUNT_NUMBER))
-        if client_search_response_data and client_search_response_data.get("clients"):
-            client_poids = client_search_response_data.get("clients").get("poid")
-            toa_record_data["clientSearchResponse"] = {}
-            for poid in client_poids:
-                ovv_response_data = DataExtractor.get_ovv_response(poid)
-                if ovv_response_data:
-                    toa_record_data["clientSearchResponse"][poid] = ovv_response_data
-        else:
-            toa_record_data["clientSearchResponse"] = None
+Test case for this similar like below
 
-    @staticmethod
-    def get_ovv_response(poid):
-        try:
-            # Make the OVV service call for the given poid
-            client_names_response_data = ClientNamesService.retrieve_client_names(poid)
-            if client_names_response_data and client_names_response_data.get("data"):
-                return client_names_response_data.get("data").get("getClientUserContext")
-            else:
-                return None
-        except Exception as exception:
-            LOGGER.error("Exception occurred during OVV service request for poid %s: error=%s", poid, str(exception))
-            return None
+
+    @patch.object(ClientSearchService, 'retrieve_client_poids')
+    def test_execute_client_search_response_none(self, mock_retrieve_clients):
+        mock_retrieve_clients.return_value = None
+
+        DataExtractor.execute_client_search(self.toa_record_data)
+        self.assertIn('clientSearchResponse', self.toa_record_data)
+        self.assertEqual(self.toa_record_data['clientSearchResponse'], None)
+
+    @patch.object(ClientSearchService, 'retrieve_client_poids')
+    def test_execute_client_search_clients_none(self, mock_retrieve_clients):
+        mock_retrieve_clients.return_value = {"clients": None}
+
+        DataExtractor.execute_client_search(self.toa_record_data)
+        self.assertIn('clientSearchResponse', self.toa_record_data)
+        self.assertEqual(self.toa_record_data['clientSearchResponse'], None)
+
+    @patch.object(ClientNamesService, 'retrieve_client_names')
+    def test_execute_client_name_success(self, mock_retrieve_client_names):
+        self.toa_record_data["clientSearchResponse"] = [2000044468]
+        for poid in self.toa_record_data["clientSearchResponse"]:
+            mock_retrieve_client_names.return_value = {str(poid): ["Mockdata"]}
+            DataExtractor.execute_client_name(self.toa_record_data)
+            self.assertIn('clientNameResponse', self.toa_record_data)
+            self.assertEqual(self.toa_record_data['clientNameResponse'], ["Mockdata"])
