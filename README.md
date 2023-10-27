@@ -1,3 +1,54 @@
+DataExtractor file
+
+    @staticmethod
+    def execute_beta_spad_toar_transaction_details(toa_record_data):
+        spad_transaction_response_data = BetaConnectorService.retrieve_spad_transaction_details(toa_record_data.get(Constants.VG_ACCOUNT_NUMBER))
+        toar_transaction_response_data = BetaConnectorService.retrieve_toar_transaction_details(toa_record_data.get(Constants.VG_ACCOUNT_NUMBER))
+        if spad_transaction_response_data and spad_transaction_response_data.get("getAccountNotesResponse"):
+            toa_record_data["spadTransactionDetails"] = spad_transaction_response_data.get("getAccountNotesResponse").get("accountNotes")
+        else:
+            toa_record_data["spadTransactionDetails"] = None
+        if toar_transaction_response_data and toar_transaction_response_data.get("getAccountTransferRequestsResponse"):
+            toa_record_data["toarTransactionDetails"] = toar_transaction_response_data.get("getAccountTransferRequestsResponse").get("accountTransfers")
+        else:
+            toa_record_data["toarTransactionDetails"] = None
+
+
+   Provide Test case for the above code, similar test cases below for reference 
+
+
+       @patch.object(BetaConnectorService, 'retrieve_spad_transaction_details')
+    def test_execute_beta_spad_transaction_details_success(self, mock_retrieve_spad_transaction_details):
+        mock_retrieve_spad_transaction_details.return_value = {"getAccountNotesResponse": {"accountNotes": ["Mockdata"]}}
+        self.toa_record_data[Constants.VG_ACCOUNT_NUMBER] = "1234"
+
+        DataExtractor.execute_beta_spad_transaction_details(self.toa_record_data)
+        self.assertIn('spadTransactionDetails', self.toa_record_data)
+        self.assertEqual(self.toa_record_data['spadTransactionDetails'], ["Mockdata"])
+
+    @patch.object(BetaConnectorService, 'retrieve_spad_transaction_details')
+    def test_execute_beta_spad_transaction_details_response_none(self, mock_retrieve_spad_transaction_details):
+        mock_retrieve_spad_transaction_details.return_value = None
+        self.toa_record_data[Constants.VG_ACCOUNT_NUMBER] = "1234"
+
+        DataExtractor.execute_beta_spad_transaction_details(self.toa_record_data)
+        self.assertIn('spadTransactionDetails', self.toa_record_data)
+        self.assertEqual(self.toa_record_data['spadTransactionDetails'], None)
+
+    @patch.object(BetaConnectorService, 'retrieve_spad_transaction_details')
+    def test_execute_beta_spad_transaction_details_getAccountNotesResponse_none(self, mock_retrieve_spad_transaction_details):
+        mock_retrieve_spad_transaction_details.return_value = {"getAccountNotesResponse": None}
+        self.toa_record_data[Constants.VG_ACCOUNT_NUMBER] = "1234"
+
+        DataExtractor.execute_beta_spad_transaction_details(self.toa_record_data)
+        self.assertIn('spadTransactionDetails', self.toa_record_data)
+        self.assertEqual(self.toa_record_data['spadTransactionDetails'], None)
+
+
+
+The below code is beta_connector_Service.py
+
+
 import requests
 from service.oauth_service import OAuthService
 from service.vg_session_service import VGSessionService
