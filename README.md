@@ -1,54 +1,80 @@
-Constants
+import requests
+from service.oauth_service import OAuthService
+from service.vg_session_service import VGSessionService
+from constants.endpoints import EndPoints
+from util.logging_util import LOGGER
+from constants.constant_values import Constants
 
-class PrimaryOwnerValidation:
+
+class BetaConnectorService:
 
     @staticmethod
-    def validating_primary_owner(toa_record_data, stp_data):
-        if PrimaryOwnerValidation._has_required_fields(toa_record_data):
-            matching_account_roles_data = PrimaryOwnerValidation._find_matching_account(toa_record_data)
-
-            if matching_account_roles_data:
-                poid = toa_record_data[Constants.VG_PRIMARY_OWNER_NAME].strip()
-                client_name_response_data = PrimaryOwnerValidation._get_client_name_response(toa_record_data)
-                if poid == client_name_response_data.strip():
-                    is_primary_owner = PrimaryOwnerValidation._is_primary_owner(matching_account_roles_data)
-                    if is_primary_owner:
-                        LOGGER.info('Primary owner is True from the RNS response where validation passed')
-                    else:
-                        PrimaryOwnerValidation._set_stp_ineligible(stp_data, "Primary owner name doesn't match where validation failed.")
-                else:
-                    PrimaryOwnerValidation._set_stp_ineligible(stp_data, "Primary owner on form does not match primary owner on Vanguard account")
+    def retrieve_spad_transaction_details(account_number):
+        beta_spad_transaction_details_response_data = None
+        url = EndPoints.retrieve_url_by_key(EndPoints.BCT_BETA_CONNECTOR_KEY)
+        headers = BetaConnectorService.build_headers()
+        payload = {
+            "path": "/v1/AccountNotes/GetAccountNotes",
+            "pageToken": "",
+            "betaPayload": {
+                "getAccountNotesRequest": {
+                    "accountNumber": int(account_number)
+                }
+            }
+        }
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            if response.status_code != 200:
+                LOGGER.error("Failed to get BETA SPAD transaction details with code %s and message %s",
+                             str(response.status_code), response.text)
             else:
-                PrimaryOwnerValidation._set_stp_ineligible(stp_data, "Unable to validate primary owner on Vanguard account")
-        else:
-            PrimaryOwnerValidation._set_stp_ineligible(stp_data, "Unable to validate primary owner on Vanguard account")
+                beta_spad_transaction_details_response_data = response.json()
+                # temp log for testing
+                LOGGER.info('BETA SPAD transaction details response data: ' + str(beta_spad_transaction_details_response_data))
+        except Exception as exception:
+            LOGGER.error("Exception occurred during BETA SPAD transaction details service request: %s", str(exception))
+
+        return beta_spad_transaction_details_response_data
 
     @staticmethod
-    def _has_required_fields(toa_record_data):
-        return toa_record_data.get('clientNameResponse') and toa_record_data.get('accountRoles') and toa_record_data.get('brokerageAccount')
+    def retrieve_toar_transaction_details(account_number):
+        beta_toar_transaction_details_response_data = None
+        url = EndPoints.retrieve_url_by_key(EndPoints.BCT_BETA_CONNECTOR_KEY)
+        headers = BetaConnectorService.build_headers()
+        payload = {
+            "path": "/v1/AccountTransfers/GetAccountTransferRequests",
+            "pageToken": "",
+            "betaPayload": {
+                "getAccountTransferRequestsRequest": {
+                    "accountTransferInstruction": "Receive",
+                    "includeTransferAssets": True,
+                    "filterOption": {
+                        "accountNumber": int(account_number)
+                    }
+                }
+            }
+        }
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            if response.status_code != 200:
+                LOGGER.error("Failed to get BETA TOAR transaction details with code %s and message %s",
+                             str(response.status_code), response.text)
+            else:
+                beta_toar_transaction_details_response_data = response.json()
+                # temp log for testing
+                LOGGER.info('BETA TOAR transaction details response data: ' + str(beta_toar_transaction_details_response_data))
+        except Exception as exception:
+            LOGGER.error("Exception occurred during BETA TOAR transaction details service request: %s", str(exception))
+
+        return beta_toar_transaction_details_response_data
 
     @staticmethod
-    def _find_matching_account(toa_record_data):
-        brokerage_account_id = toa_record_data['brokerageAccount']['accountId']
-        for account_roles_data in toa_record_data['accountRoles']:
-            if str(account_roles_data.get('accountId')) == str(brokerage_account_id):
-                return account_roles_data
-        return None
-
-    @staticmethod
-    def _get_client_name_response(toa_record_data):
-        client_name_data = toa_record_data['clientNameResponse']
-        return client_name_data.get('firstName', '') + ' ' + client_name_data.get('lastName', '')
-
-    @staticmethod
-    def _is_primary_owner(account_data):
-        for matching_register_roles_data in account_data.get('registeredRoles', []):
-            if matching_register_roles_data.get('primaryOwner'):
-                return True
-        return False
-
-    @staticmethod
-    def _set_stp_ineligible(stp_data, message):
-        stp_data['is_stp_eligible'] = False
-        stp_data['message'] = stp_data.get('message', '') + "\n" + message
-        LOGGER.info('Primary owner validation, set message: ' + stp_data['message'])
+    def build_headers():
+        vg_session = VGSessionService.retrieve_vg_session_token()
+        oauth_token = OAuthService.retrieve_oauth_token(vg_session=vg_session)
+        return {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Consumer-Application-Code": Constants.CONSUMER_APPLICATION_CODE_KEY,
+            "Authorization": f"Bearer {oauth_token}"
+        }
