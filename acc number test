@@ -1,45 +1,27 @@
-Acceptance Criteria
+class TestContrafirmAccountValidation(unittest.TestCase):
+        def test_multiple_account_numbers_with_commas(self):
+            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432, 99993, 22415"}
+            stp_flag = validate_contrafirm_account_number(data)
+            self.assertFalse(stp_flag)
+        def test_multiple_account_numbers_with_semi_colons(self):
+            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432; 99993; 22415"}
+            stp_flag = validate_contrafirm_account_number(data)
+            self.assertFalse(stp_flag)
 
-Given the account listed in the answer file is NOT a managed account
+        def test_single_account_number(self):
 
-And the service call is successful
+            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432"}
+            stp_flag = validate_contrafirm_account_number(data)
+            self.assertTrue(stp_flag)
 
-And managed account data is returned for the given client/account
+        def test_single_account_number_with_special_characters(self):
 
-When the lambda validates the account is not managed
+            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "444-228885"}
+            stp_flag = validate_contrafirm_account_number(data)
+            self.assertTrue(stp_flag)
 
-Then it logs a message (temporary)
+        def test_empty_account_number(self):
 
-And continues on to the next step
-
- 
-
-Given the account listed in the answer file is a managed account
-
-And the service call is successful
-
-And account data is returned for the given account
-
-When the lambda validates the account
-
-Then it logs a message (temporary)
-
-and sets  STP flag to false
-
-and moves on to the next validation
-
- 
-
-Given the account listed in the answer file is a managed account
-
-And the service call is NOT successful
-
-And account data is none
-
-When the lambda validates the account
-
-Then it logs a message (temporary)
-
-and sets  STP flag to false
-
-and moves on to the next validation
+            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: ""}
+            stp_flag = validate_contrafirm_account_number(data)
+            self.assertTrue(stp_flag)
