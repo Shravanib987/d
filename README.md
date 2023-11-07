@@ -1,12 +1,11 @@
-import re
-import Constants
+for spad_data in data['spadTransactionDetails']:
+    print(spad_data)
+    control_Number = re.search(r'CTL-NO (\d+)', spad_data['note']).group(1) if re.search(r'CTL-NO (\d+)', data['spadTransactionDetails'][0]['note']) else None
+    type = (re.search(r'TYPE (\w+)', spad_data['note']).group(1)).replace('PART','')
+    participent_Number= re.search( r'FIKPART (\d+)', spad_data['note']).group(1)
+    external_account_number = re.search(r'# (\d+)', spad_data['note']).group(1)
 
-def validate_contrafirm_account_number(toa_recrddata,stp_data):
-    account_numbers = re.split(r'[;,]', toa_recrddata[Constants.CONTRAFIRM_ACCOUNT_NUMBER])
-
-    stp_flag = True
-
-    if len(account_numbers) > 1:
-        stp_flag = False
-
-    return stp_flag
+    print(control_Number)
+    print(type)
+    print(participent_Number)
+    print(external_account_number)
