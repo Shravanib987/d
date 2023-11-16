@@ -1,27 +1,51 @@
-class TestContrafirmAccountValidation(unittest.TestCase):
-        def test_multiple_account_numbers_with_commas(self):
-            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432, 99993, 22415"}
-            stp_flag = validate_contrafirm_account_number(data)
-            self.assertFalse(stp_flag)
-        def test_multiple_account_numbers_with_semi_colons(self):
-            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432; 99993; 22415"}
-            stp_flag = validate_contrafirm_account_number(data)
-            self.assertFalse(stp_flag)
+import unittest
+from unittest.mock import patch
+from util.logging_util import LOGGER
+from validation.primary_owner_validation import OwnerValidationUtil
+from src.constants.constant_values import Constants
 
-        def test_single_account_number(self):
+# Assuming your existing test setup and data are available
 
-            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "1267432"}
-            stp_flag = validate_contrafirm_account_number(data)
-            self.assertTrue(stp_flag)
+class TestOwnerValidationUtil(unittest.TestCase):
 
-        def test_single_account_number_with_special_characters(self):
+    @patch.object(LOGGER, 'info')
+    def test_has_required_fields_matching_account_data_valid(self, mock_logger_info):
+        # Test when response data is not empty and matches account data
+        toa_record_data = {...}  # Provide valid test data
+        result = OwnerValidationUtil.has_required_fields_matching_account_data(toa_record_data)
+        self.assertIsNotNone(result)
+        mock_logger_info.assert_not_called()  # Ensure LOGGER.info is not called in this case
 
-            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: "444-228885"}
-            stp_flag = validate_contrafirm_account_number(data)
-            self.assertTrue(stp_flag)
+    def test_has_required_fields_matching_account_data_empty_response(self):
+        # Test when response data is empty
+        toa_record_data = {'clientNameResponse': None, 'accountRoles': None, 'brokerageAccount': None}
+        result = OwnerValidationUtil.has_required_fields_matching_account_data(toa_record_data)
+        self.assertIsNone(result)
 
-        def test_empty_account_number(self):
+    @patch.object(LOGGER, 'info')
+    def test_validating_owner_data_matching(self, mock_logger_info):
+        # Test when owner data matches client response data
+        toa_record_data = {'VG_SECONDARY_OWNER_NAME': 'John Doe'}  # Provide valid test data
+        data = {'firstName': 'John', 'middleName': '', 'lastName': 'Doe'}
+        result = OwnerValidationUtil.validating_owner_data(toa_record_data, data, 'VG_SECONDARY_OWNER_NAME')
+        self.assertTrue(result)
+        mock_logger_info.assert_not_called()
 
-            data = {Constants.CONTRAFIRM_ACCOUNT_NUMBER: ""}
-            stp_flag = validate_contrafirm_account_number(data)
-            self.assertTrue(stp_flag)
+    def test_validating_owner_data_not_matching(self):
+        # Test when owner data does not match client response data
+        toa_record_data = {'VG_SECONDARY_OWNER_NAME': 'John Doe'}
+        data = {'firstName': 'Alice', 'middleName': '', 'lastName': 'Smith'}
+        result = OwnerValidationUtil.validating_owner_data(toa_record_data, data, 'VG_SECONDARY_OWNER_NAME')
+        self.assertFalse(result)
+
+    @patch.object(LOGGER, 'info')
+    def test_set_stp_ineligible(self, mock_logger_info):
+        # Test setting STP ineligible
+        stp_data = {'is_stp_eligible': True, 'message': ''}
+        OwnerValidationUtil.set_stp_ineligible(stp_data, 'Some message', 'Secondary Owner')
+        self.assertFalse(stp_data['is_stp_eligible'])
+        self.assertEqual(stp_data['message'], '\nSome message')
+        mock_logger_info.assert_called_once_with('Secondary Owner, set message: Some message')
+
+if __name__ == '__main__':
+    unittest.main()
