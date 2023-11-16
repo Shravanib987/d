@@ -1,17 +1,42 @@
-@patch('main_test_class.MyUtil')
-    def test_method_to_test(self, mock_util_class):
-        # Create an instance of the mock MyUtil class
-        mock_util_instance = mock_util_class.return_value
+import unittest
+from unittest.mock import patch, Mock
+from your_module import YourClass
 
-        # Set the return values for the methods you want to mock
-        mock_util_instance.method1.return_value = "mocked_method1_result"
-        mock_util_instance.method2.return_value = "mocked_method2_result"
+class YourClassTest(unittest.TestCase):
 
-        # Create an instance of the main test class
-        main_test_instance = MainTestClass()
+    @patch('your_module.YourClass.toa_record_data.get')
+    def test_has_required_fields_matching_account_data(self, mock_get):
+        # Prepare mock data and instance
+        mock_data = {'clientNameResponse': 'response', 'accountRoles': [{'accountId': '123'}], 'brokerageAccount': {'accountId': '123'}}
+        instance = YourClass()
 
-        # Call the method you want to test
-        result = main_test_instance.method_to_test()
+        # Set the return value for the mocked get method
+        mock_get.side_effect = mock_data.get
 
-        # Your assertions based on the mocked results
-        self.assertEqual(result, "mocked_method1_resultmocked_method2_result")
+        # Call the method under test
+        result = instance.has_required_fields_matching_account_data(mock_data)
+
+        # Assertions
+        self.assertEqual(result, mock_data['accountRoles'][0])
+
+    @patch('your_module.YourClass.toa_record_data.get')
+    @patch('your_module.YourClass.LOGGER.info')
+    def test_validating_owner_data(self, mock_logger_info, mock_get):
+        # Prepare mock data and instance
+        mock_data = {'firstName': 'John', 'middleName': 'Doe', 'lastName': 'Smith'}
+        toa_record_data = {'owner_name_type': 'some_owner_name_type'}
+
+        instance = YourClass()
+
+        # Set the return values for the mocked get method
+        mock_get.side_effect = lambda key: mock_data.get(key, '')
+
+        # Call the method under test
+        result = instance.validating_owner_data(toa_record_data, mock_data, 'owner_name_type')
+
+        # Assertions
+        mock_logger_info.assert_called_once()  # Add appropriate arguments
+        self.assertTrue(result)  # Adapt based on the actual behavior of your method
+
+if __name__ == '__main__':
+    unittest.main()
